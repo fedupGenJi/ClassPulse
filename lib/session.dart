@@ -44,132 +44,80 @@ class _SessionPageState extends State<SessionPage> {
   }
 
   Future<void> optimizeTimetable(BuildContext context) async {
-    Map<String, List<Map<String, dynamic>>> grouped = {};
+  Map<String, List<Map<String, dynamic>>> grouped = {};
 
-    for (var session in timetable) {
-      final day = session['day'];
-      grouped.putIfAbsent(day, () => []).add(session);
+  for (var session in timetable) {
+    final day = session['day'];
+    grouped.putIfAbsent(day, () => []).add(session);
+  }
+
+  String globalEarliest = '23:59';
+  String globalLatest = '00:00';
+
+  for (var sessions in grouped.values) {
+    for (var session in sessions) {
+      final start = session['start'] is TimeOfDay
+          ? formatTimeOfDay(session['start'])
+          : session['start'];
+      final end = session['end'] is TimeOfDay
+          ? formatTimeOfDay(session['end'])
+          : session['end'];
+
+      if (_isEarlier(start, globalEarliest)) globalEarliest = start;
+      if (_isLater(end, globalLatest)) globalLatest = end;
     }
+  }
 
-    String globalEarliest = '23:59';
-    String globalLatest = '00:00';
+  Map<String, List<Map<String, dynamic>>> optimized = {};
 
-    for (var sessions in grouped.values) {
+  for (var day in days) {
+    final sessions = grouped[day]?.map((session) {
+      final start = session['start'] is TimeOfDay
+          ? formatTimeOfDay(session['start'])
+          : session['start'];
+      final end = session['end'] is TimeOfDay
+          ? formatTimeOfDay(session['end'])
+          : session['end'];
+      return {
+        'subject': session['subject'],
+        'instructor': session['instructor'],
+        'start': start,
+        'end': end,
+      };
+    }).toList() ?? [];
+
+    sessions.sort((a, b) => a['start'].compareTo(b['start']));
+
+    List<Map<String, dynamic>> daySchedule = [];
+    String currentTime = globalEarliest;
+
+    if (sessions.isEmpty) {
+      daySchedule.add({
+        'class': 'YIPPEE',
+        'start': globalEarliest,
+        'end': globalLatest,
+      });
+    } else {
       for (var session in sessions) {
-        final start =
-            session['start'] is TimeOfDay
-                ? formatTimeOfDay(session['start'])
-                : session['start'];
-        final end =
-            session['end'] is TimeOfDay
-                ? formatTimeOfDay(session['end'])
-                : session['end'];
+        final start = session['start'];
+        final end = session['end'];
 
-        if (_isEarlier(start, globalEarliest)) globalEarliest = start;
-        if (_isLater(end, globalLatest)) globalLatest = end;
-      }
-    }
-
-    Map<String, List<Map<String, dynamic>>> optimized = {};
-
-    for (var entry in grouped.entries) {
-      final day = entry.key;
-      final sessions =
-          entry.value.map((session) {
-              final start =
-                  session['start'] is TimeOfDay
-                      ? formatTimeOfDay(session['start'])
-                      : session['start'];
-              final end =
-                  session['end'] is TimeOfDay
-                      ? formatTimeOfDay(session['end'])
-                      : session['end'];
-              return {
-                'subject': session['subject'],
-                'instructor': session['instructor'],
-                'start': start,
-                'end': end,
-              };
-            }).toList()
-            ..sort((a, b) => a['start'].compareTo(b['start']));
-
-      List<Map<String, dynamic>> daySchedule = [];
-      String currentTime = globalEarliest;
-
-      List<String> allDays = [
-        'Sunday',
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday',
-      ];
-
-      for (var day in allDays) {
-        final sessions =
-            grouped[day]?.map((session) {
-              final start =
-                  session['start'] is TimeOfDay
-                      ? formatTimeOfDay(session['start'])
-                      : session['start'];
-              final end =
-                  session['end'] is TimeOfDay
-                      ? formatTimeOfDay(session['end'])
-                      : session['end'];
-              return {
-                'subject': session['subject'],
-                'instructor': session['instructor'],
-                'start': start,
-                'end': end,
-              };
-            }).toList() ??
-            [];
-
-        sessions.sort((a, b) => a['start'].compareTo(b['start']));
-
-        List<Map<String, dynamic>> daySchedule = [];
-        String currentTime = globalEarliest;
-
-        if (sessions.isEmpty) {
+        if (_isEarlier(currentTime, start)) {
           daySchedule.add({
-            'class': 'YIPPEE',
-            'start': globalEarliest,
-            'end': globalLatest,
+            'class': 'Break',
+            'start': currentTime,
+            'end': start,
           });
-        } else {
-          for (var session in sessions) {
-            final start = session['start'];
-            final end = session['end'];
-
-            if (_isEarlier(currentTime, start)) {
-              daySchedule.add({
-                'class': 'Break',
-                'start': currentTime,
-                'end': start,
-              });
-            }
-
-            daySchedule.add({
-              'class': session['subject'],
-              'professor': session['instructor'],
-              'start': start,
-              'end': end,
-            });
-
-            currentTime = end;
-          }
-
-          if (_isEarlier(currentTime, globalLatest)) {
-            daySchedule.add({
-              'class': 'Break',
-              'start': currentTime,
-              'end': globalLatest,
-            });
-          }
         }
 
-        optimized[day] = daySchedule;
+        daySchedule.add({
+          'class': session['subject'],
+          'professor': session['instructor'],
+          'start': start,
+          'end': end,
+        });
+
+        currentTime = end;
       }
 
       if (_isEarlier(currentTime, globalLatest)) {
@@ -179,21 +127,14 @@ class _SessionPageState extends State<SessionPage> {
           'end': globalLatest,
         });
       }
-
-      if (daySchedule.isEmpty) {
-        daySchedule.add({
-          'class': 'YIPPEE',
-          'start': globalEarliest,
-          'end': globalLatest,
-        });
-      }
-
-      optimized[day] = daySchedule;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('optimizedTimetable', jsonEncode(optimized));
+    optimized[day] = daySchedule;
   }
+
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString('optimizedTimetable', jsonEncode(optimized));
+}
 
   bool _isEarlier(String time1, String time2) {
     final t1 = time1.split(':').map(int.parse).toList();
