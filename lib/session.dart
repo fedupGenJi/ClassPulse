@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'homepage.dart';
 import 'dart:math';
+import 'dart:convert';
 
 class SessionPage extends StatefulWidget {
   const SessionPage({Key? key}) : super(key: key);
@@ -42,12 +43,182 @@ class _SessionPageState extends State<SessionPage> {
     return subjectColors[subject]!;
   }
 
+  Future<void> optimizeTimetable(BuildContext context) async {
+    Map<String, List<Map<String, dynamic>>> grouped = {};
+
+    for (var session in timetable) {
+      final day = session['day'];
+      grouped.putIfAbsent(day, () => []).add(session);
+    }
+
+    String globalEarliest = '23:59';
+    String globalLatest = '00:00';
+
+    for (var sessions in grouped.values) {
+      for (var session in sessions) {
+        final start =
+            session['start'] is TimeOfDay
+                ? formatTimeOfDay(session['start'])
+                : session['start'];
+        final end =
+            session['end'] is TimeOfDay
+                ? formatTimeOfDay(session['end'])
+                : session['end'];
+
+        if (_isEarlier(start, globalEarliest)) globalEarliest = start;
+        if (_isLater(end, globalLatest)) globalLatest = end;
+      }
+    }
+
+    Map<String, List<Map<String, dynamic>>> optimized = {};
+
+    for (var entry in grouped.entries) {
+      final day = entry.key;
+      final sessions =
+          entry.value.map((session) {
+              final start =
+                  session['start'] is TimeOfDay
+                      ? formatTimeOfDay(session['start'])
+                      : session['start'];
+              final end =
+                  session['end'] is TimeOfDay
+                      ? formatTimeOfDay(session['end'])
+                      : session['end'];
+              return {
+                'subject': session['subject'],
+                'instructor': session['instructor'],
+                'start': start,
+                'end': end,
+              };
+            }).toList()
+            ..sort((a, b) => a['start'].compareTo(b['start']));
+
+      List<Map<String, dynamic>> daySchedule = [];
+      String currentTime = globalEarliest;
+
+      List<String> allDays = [
+        'Sunday',
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+      ];
+
+      for (var day in allDays) {
+        final sessions =
+            grouped[day]?.map((session) {
+              final start =
+                  session['start'] is TimeOfDay
+                      ? formatTimeOfDay(session['start'])
+                      : session['start'];
+              final end =
+                  session['end'] is TimeOfDay
+                      ? formatTimeOfDay(session['end'])
+                      : session['end'];
+              return {
+                'subject': session['subject'],
+                'instructor': session['instructor'],
+                'start': start,
+                'end': end,
+              };
+            }).toList() ??
+            [];
+
+        sessions.sort((a, b) => a['start'].compareTo(b['start']));
+
+        List<Map<String, dynamic>> daySchedule = [];
+        String currentTime = globalEarliest;
+
+        if (sessions.isEmpty) {
+          daySchedule.add({
+            'class': 'YIPPEE',
+            'start': globalEarliest,
+            'end': globalLatest,
+          });
+        } else {
+          for (var session in sessions) {
+            final start = session['start'];
+            final end = session['end'];
+
+            if (_isEarlier(currentTime, start)) {
+              daySchedule.add({
+                'class': 'Break',
+                'start': currentTime,
+                'end': start,
+              });
+            }
+
+            daySchedule.add({
+              'class': session['subject'],
+              'professor': session['instructor'],
+              'start': start,
+              'end': end,
+            });
+
+            currentTime = end;
+          }
+
+          if (_isEarlier(currentTime, globalLatest)) {
+            daySchedule.add({
+              'class': 'Break',
+              'start': currentTime,
+              'end': globalLatest,
+            });
+          }
+        }
+
+        optimized[day] = daySchedule;
+      }
+
+      if (_isEarlier(currentTime, globalLatest)) {
+        daySchedule.add({
+          'class': 'Break',
+          'start': currentTime,
+          'end': globalLatest,
+        });
+      }
+
+      if (daySchedule.isEmpty) {
+        daySchedule.add({
+          'class': 'YIPPEE',
+          'start': globalEarliest,
+          'end': globalLatest,
+        });
+      }
+
+      optimized[day] = daySchedule;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('optimizedTimetable', jsonEncode(optimized));
+  }
+
+  bool _isEarlier(String time1, String time2) {
+    final t1 = time1.split(':').map(int.parse).toList();
+    final t2 = time2.split(':').map(int.parse).toList();
+    return t1[0] < t2[0] || (t1[0] == t2[0] && t1[1] < t2[1]);
+  }
+
+  bool _isLater(String time1, String time2) {
+    final t1 = time1.split(':').map(int.parse).toList();
+    final t2 = time2.split(':').map(int.parse).toList();
+    return t1[0] > t2[0] || (t1[0] == t2[0] && t1[1] > t2[1]);
+  }
+
+  String formatTimeOfDay(TimeOfDay time) {
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
   Future<void> _pickDate(BuildContext context) async {
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
+      lastDate: DateTime(2030),
     );
 
     if (picked != null) {
@@ -61,19 +232,30 @@ class _SessionPageState extends State<SessionPage> {
     final picked = await showTimePicker(
       context: context,
       initialTime: const TimeOfDay(hour: 8, minute: 0),
+      builder: (BuildContext context, Widget? child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        );
+      },
     );
 
     if (picked != null) {
-      int roundedMinute = (picked.minute < 30) ? 0 : 30;
+      if (picked.hour >= 6 && picked.hour <= 18) {
+        final rounded = TimeOfDay(hour: picked.hour, minute: 0);
 
-      final rounded = TimeOfDay(hour: picked.hour, minute: roundedMinute);
-      setState(() {
-        if (isStart) {
-          _startTime = rounded;
-        } else {
-          _endTime = rounded;
-        }
-      });
+        setState(() {
+          if (isStart) {
+            _startTime = rounded;
+          } else {
+            _endTime = rounded;
+          }
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Please select a time between 6 AM and 6 PM')),
+        );
+      }
     }
   }
 
@@ -192,7 +374,7 @@ class _SessionPageState extends State<SessionPage> {
 
   Future<void> _completeSession() async {
     if (semesterStartDate == null || timetable.isEmpty) return;
-
+    await optimizeTimetable(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder:
@@ -265,7 +447,20 @@ class _SessionPageState extends State<SessionPage> {
                       context: context,
                       initialTime: newStart!,
                     );
-                    if (picked != null) newStart = picked;
+
+                    if (picked != null &&
+                        picked.hour >= 6 &&
+                        picked.hour <= 18) {
+                      newStart = TimeOfDay(hour: picked.hour, minute: 0);
+                    } else if (picked != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Please select a time between 6 AM and 6 PM',
+                          ),
+                        ),
+                      );
+                    }
                   },
                   child: Text(
                     "Start: ${newStart != null ? newStart!.format(context) : 'Select time'}",
@@ -277,7 +472,20 @@ class _SessionPageState extends State<SessionPage> {
                       context: context,
                       initialTime: newEnd!,
                     );
-                    if (picked != null) newEnd = picked;
+
+                    if (picked != null &&
+                        picked.hour >= 6 &&
+                        picked.hour <= 18) {
+                      newEnd = TimeOfDay(hour: picked.hour, minute: 0);
+                    } else if (picked != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Please select a time between 6 AM and 6 PM',
+                          ),
+                        ),
+                      );
+                    }
                   },
                   child: Text(
                     "End: ${newEnd != null ? newEnd!.format(context) : 'Select time'}",
