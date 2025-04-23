@@ -44,97 +44,103 @@ class _SessionPageState extends State<SessionPage> {
   }
 
   Future<void> optimizeTimetable(BuildContext context) async {
-  Map<String, List<Map<String, dynamic>>> grouped = {};
+    Map<String, List<Map<String, dynamic>>> grouped = {};
 
-  for (var session in timetable) {
-    final day = session['day'];
-    grouped.putIfAbsent(day, () => []).add(session);
-  }
-
-  String globalEarliest = '23:59';
-  String globalLatest = '00:00';
-
-  for (var sessions in grouped.values) {
-    for (var session in sessions) {
-      final start = session['start'] is TimeOfDay
-          ? formatTimeOfDay(session['start'])
-          : session['start'];
-      final end = session['end'] is TimeOfDay
-          ? formatTimeOfDay(session['end'])
-          : session['end'];
-
-      if (_isEarlier(start, globalEarliest)) globalEarliest = start;
-      if (_isLater(end, globalLatest)) globalLatest = end;
+    for (var session in timetable) {
+      final day = session['day'];
+      grouped.putIfAbsent(day, () => []).add(session);
     }
-  }
 
-  Map<String, List<Map<String, dynamic>>> optimized = {};
+    String globalEarliest = '23:59';
+    String globalLatest = '00:00';
 
-  for (var day in days) {
-    final sessions = grouped[day]?.map((session) {
-      final start = session['start'] is TimeOfDay
-          ? formatTimeOfDay(session['start'])
-          : session['start'];
-      final end = session['end'] is TimeOfDay
-          ? formatTimeOfDay(session['end'])
-          : session['end'];
-      return {
-        'subject': session['subject'],
-        'instructor': session['instructor'],
-        'start': start,
-        'end': end,
-      };
-    }).toList() ?? [];
-
-    sessions.sort((a, b) => a['start'].compareTo(b['start']));
-
-    List<Map<String, dynamic>> daySchedule = [];
-    String currentTime = globalEarliest;
-
-    if (sessions.isEmpty) {
-      daySchedule.add({
-        'class': 'YIPPEE',
-        'start': globalEarliest,
-        'end': globalLatest,
-      });
-    } else {
+    for (var sessions in grouped.values) {
       for (var session in sessions) {
-        final start = session['start'];
-        final end = session['end'];
+        final start =
+            session['start'] is TimeOfDay
+                ? formatTimeOfDay(session['start'])
+                : session['start'];
+        final end =
+            session['end'] is TimeOfDay
+                ? formatTimeOfDay(session['end'])
+                : session['end'];
 
-        if (_isEarlier(currentTime, start)) {
+        if (_isEarlier(start, globalEarliest)) globalEarliest = start;
+        if (_isLater(end, globalLatest)) globalLatest = end;
+      }
+    }
+
+    Map<String, List<Map<String, dynamic>>> optimized = {};
+
+    for (var day in days) {
+      final sessions =
+          grouped[day]?.map((session) {
+            final start =
+                session['start'] is TimeOfDay
+                    ? formatTimeOfDay(session['start'])
+                    : session['start'];
+            final end =
+                session['end'] is TimeOfDay
+                    ? formatTimeOfDay(session['end'])
+                    : session['end'];
+            return {
+              'subject': session['subject'],
+              'instructor': session['instructor'],
+              'start': start,
+              'end': end,
+            };
+          }).toList() ??
+          [];
+
+      sessions.sort((a, b) => a['start'].compareTo(b['start']));
+
+      List<Map<String, dynamic>> daySchedule = [];
+      String currentTime = globalEarliest;
+
+      if (sessions.isEmpty) {
+        daySchedule.add({
+          'class': 'YIPPEE',
+          'start': globalEarliest,
+          'end': globalLatest,
+        });
+      } else {
+        for (var session in sessions) {
+          final start = session['start'];
+          final end = session['end'];
+
+          if (_isEarlier(currentTime, start)) {
+            daySchedule.add({
+              'class': 'Break',
+              'start': currentTime,
+              'end': start,
+            });
+          }
+
+          daySchedule.add({
+            'class': session['subject'],
+            'professor': session['instructor'],
+            'start': start,
+            'end': end,
+          });
+
+          currentTime = end;
+        }
+
+        if (_isEarlier(currentTime, globalLatest)) {
           daySchedule.add({
             'class': 'Break',
             'start': currentTime,
-            'end': start,
+            'end': globalLatest,
           });
         }
-
-        daySchedule.add({
-          'class': session['subject'],
-          'professor': session['instructor'],
-          'start': start,
-          'end': end,
-        });
-
-        currentTime = end;
       }
 
-      if (_isEarlier(currentTime, globalLatest)) {
-        daySchedule.add({
-          'class': 'Break',
-          'start': currentTime,
-          'end': globalLatest,
-        });
-      }
+      optimized[day] = daySchedule;
     }
 
-    optimized[day] = daySchedule;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('optimizedTimetable', jsonEncode(optimized));
   }
-
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setString('optimizedTimetable', jsonEncode(optimized));
-}
 
   bool _isEarlier(String time1, String time2) {
     final t1 = time1.split(':').map(int.parse).toList();
@@ -205,6 +211,14 @@ class _SessionPageState extends State<SessionPage> {
         _startTime != null &&
         _endTime != null &&
         _selectedDay != null) {
+      if (_endTime!.hour < _startTime!.hour ||
+          (_endTime!.hour == _startTime!.hour &&
+              _endTime!.minute <= _startTime!.minute)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("❌ End time must be after start time.")),
+        );
+        return;
+      }
       final newSession = {
         'subject': _subjectController.text.trim(),
         'instructor': _instructorController.text.trim(),
@@ -254,6 +268,14 @@ class _SessionPageState extends State<SessionPage> {
         _startTime != null &&
         _endTime != null &&
         _selectedDay != null) {
+      if (_endTime!.hour < _startTime!.hour ||
+          (_endTime!.hour == _startTime!.hour &&
+              _endTime!.minute <= _startTime!.minute)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("❌ End time must be after start time.")),
+        );
+        return;
+      }
       final currentSession = {
         'subject': _subjectController.text.trim(),
         'instructor': _instructorController.text.trim(),
@@ -449,12 +471,38 @@ class _SessionPageState extends State<SessionPage> {
               ),
               TextButton(
                 onPressed: () {
+                  if (newStart == null || newEnd == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "❗ Please select both start and end times.",
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  // Promote to non-null local variables for safe use
+                  final safeStart = newStart!;
+                  final safeEnd = newEnd!;
+
+                  if (safeEnd.hour < safeStart.hour ||
+                      (safeEnd.hour == safeStart.hour &&
+                          safeEnd.minute <= safeStart.minute)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("❌ End time must be after start time."),
+                      ),
+                    );
+                    return;
+                  }
+
                   setState(() {
                     timetable[index] = {
                       ...session,
                       'day': newDay,
-                      'start': newStart,
-                      'end': newEnd,
+                      'start': safeStart,
+                      'end': safeEnd,
                     };
                   });
                   Navigator.pop(context);

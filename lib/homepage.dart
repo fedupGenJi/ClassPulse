@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'schedule.dart';
 import 'attendance.dart';
+import 'statsPage.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -33,46 +34,49 @@ class _HomePageState extends State<HomePage> {
   void _showFancyProfileDialog() {
     showDialog(
       context: context,
-      builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircleAvatar(
-                radius: 40,
-                backgroundColor: Color(0xFFb3e5fc),
-                child: Icon(Icons.person, size: 50, color: Colors.black54),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                userName,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Divider(height: 24),
-              _profileDetail(Icons.email, userGmail),
-              const SizedBox(height: 8),
-              _profileDetail(Icons.school, userCourse),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFb3e5fc),
-                  foregroundColor: Colors.black87,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
+      builder:
+          (_) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircleAvatar(
+                    radius: 40,
+                    backgroundColor: Color(0xFFb3e5fc),
+                    child: Icon(Icons.person, size: 50, color: Colors.black54),
                   ),
-                ),
-                child: const Text("Close"),
+                  const SizedBox(height: 16),
+                  Text(
+                    userName,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(height: 24),
+                  _profileDetail(Icons.email, userGmail),
+                  const SizedBox(height: 8),
+                  _profileDetail(Icons.school, userCourse),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFb3e5fc),
+                      foregroundColor: Colors.black87,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    child: const Text("Close"),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 
@@ -92,6 +96,22 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _triggerAttendanceSummaryAndNavigate() async {
+    final updated = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AttendancePage(triggerSave: true),
+      ),
+    );
+
+    if (updated == true) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const StatsPage()),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -107,24 +127,26 @@ class _HomePageState extends State<HomePage> {
         ),
         actions: [
           IconButton(
-    icon: const Icon(Icons.check_circle_outline, color: Colors.black87),
-    onPressed: () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const AttendancePage()),
-      );
-    },
-  ),
+            icon: const Icon(Icons.bar_chart, color: Colors.black87),
+            onPressed: _triggerAttendanceSummaryAndNavigate,
+          ),
+          IconButton(
+            icon: const Icon(Icons.check_circle_outline, color: Colors.black87),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AttendancePage()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.calendar_today, color: Colors.black87),
             onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => TimetableGridPage(),
-          ),
-        );
-      },
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => TimetableGridPage()),
+              );
+            },
           ),
         ],
       ),
