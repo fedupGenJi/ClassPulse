@@ -538,8 +538,38 @@ class _AttendancePageState extends State<AttendancePage> {
 
                       final existingStart = _parseTime(session['start']);
                       final existingEnd = _parseTime(session['end']);
-                      if (!(newEnd.hour <= existingStart.hour ||
-                          newStart.hour >= existingEnd.hour)) {
+
+                      final existingStartTime = DateTime(
+                        0,
+                        1,
+                        1,
+                        existingStart.hour,
+                        existingStart.minute,
+                      );
+                      final existingEndTime = DateTime(
+                        0,
+                        1,
+                        1,
+                        existingEnd.hour,
+                        existingEnd.minute,
+                      );
+                      final newStartTime = DateTime(
+                        0,
+                        1,
+                        1,
+                        newStart.hour,
+                        newStart.minute,
+                      );
+                      final newEndTime = DateTime(
+                        0,
+                        1,
+                        1,
+                        newEnd.hour,
+                        newEnd.minute,
+                      );
+
+                      if (newStartTime.isBefore(existingEndTime) &&
+                          newEndTime.isAfter(existingStartTime)) {
                         conflicts = true;
                         break;
                       }
@@ -548,8 +578,38 @@ class _AttendancePageState extends State<AttendancePage> {
                     for (var extra in extraClasses) {
                       final existingStart = _parseTime(extra['start']);
                       final existingEnd = _parseTime(extra['end']);
-                      if (!(newEnd.hour <= existingStart.hour ||
-                          newStart.hour >= existingEnd.hour)) {
+
+                      final existingStartTime = DateTime(
+                        0,
+                        1,
+                        1,
+                        existingStart.hour,
+                        existingStart.minute,
+                      );
+                      final existingEndTime = DateTime(
+                        0,
+                        1,
+                        1,
+                        existingEnd.hour,
+                        existingEnd.minute,
+                      );
+                      final newStartTime = DateTime(
+                        0,
+                        1,
+                        1,
+                        newStart.hour,
+                        newStart.minute,
+                      );
+                      final newEndTime = DateTime(
+                        0,
+                        1,
+                        1,
+                        newEnd.hour,
+                        newEnd.minute,
+                      );
+
+                      if (newStartTime.isBefore(existingEndTime) &&
+                          newEndTime.isAfter(existingStartTime)) {
                         conflicts = true;
                         break;
                       }
