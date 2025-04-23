@@ -36,23 +36,28 @@ class _AttendancePageState extends State<AttendancePage> {
     final optimizedTimetable = jsonDecode(timetableStr);
     final attendanceLog = Map<String, dynamic>.from(jsonDecode(attendanceStr));
 
-    final currentDay = [
-      'Sunday',
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday'
-    ][date.weekday % 7];
+    final currentDay =
+        [
+          'Sunday',
+          'Monday',
+          'Tuesday',
+          'Wednesday',
+          'Thursday',
+          'Friday',
+          'Saturday',
+        ][date.weekday % 7];
 
     final dateKey = date.toIso8601String().split('T').first;
-    final extras = List<Map<String, dynamic>>.from(attendanceLog['extra_$dateKey'] ?? []);
+    final extras = List<Map<String, dynamic>>.from(
+      attendanceLog['extra_$dateKey'] ?? [],
+    );
 
     setState(() {
       todaySchedule = {
         'day': currentDay,
-        'classes': List<Map<String, dynamic>>.from(optimizedTimetable[currentDay] ?? [])
+        'classes': List<Map<String, dynamic>>.from(
+          optimizedTimetable[currentDay] ?? [],
+        ),
       };
       attendance = Map<String, String>.from(attendanceLog[dateKey] ?? {});
       extraClasses = extras;
@@ -128,98 +133,122 @@ class _AttendancePageState extends State<AttendancePage> {
 
     await showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Add Extra Class"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: "Class Name"),
+      builder:
+          (_) => AlertDialog(
+            title: const Text("Add Extra Class"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: "Class Name"),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () async {
+                    final picked = await showTimePicker(
+                      context: context,
+                      initialTime: const TimeOfDay(hour: 8, minute: 0),
+                    );
+                    if (picked != null) setState(() => startTime = picked);
+                  },
+                  child: Text(
+                    startTime == null
+                        ? "Pick Start Time"
+                        : "Start: ${startTime!.format(context)}",
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final picked = await showTimePicker(
+                      context: context,
+                      initialTime: const TimeOfDay(hour: 9, minute: 0),
+                    );
+                    if (picked != null) setState(() => endTime = picked);
+                  },
+                  child: Text(
+                    endTime == null
+                        ? "Pick End Time"
+                        : "End: ${endTime!.format(context)}",
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: () async {
-                final picked = await showTimePicker(
-                    context: context, initialTime: const TimeOfDay(hour: 8, minute: 0));
-                if (picked != null) setState(() => startTime = picked);
-              },
-              child: Text(startTime == null
-                  ? "Pick Start Time"
-                  : "Start: ${startTime!.format(context)}"),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final picked = await showTimePicker(
-                    context: context, initialTime: const TimeOfDay(hour: 9, minute: 0));
-                if (picked != null) setState(() => endTime = picked);
-              },
-              child: Text(endTime == null
-                  ? "Pick End Time"
-                  : "End: ${endTime!.format(context)}"),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: () {
-              if (_nameController.text.trim().isEmpty ||
-                  startTime == null ||
-                  endTime == null) return;
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  if (_nameController.text.trim().isEmpty ||
+                      startTime == null ||
+                      endTime == null)
+                    return;
 
-              final newStart = startTime!;
-              final newEnd = endTime!;
+                  final newStart = startTime!;
+                  final newEnd = endTime!;
 
-              bool conflicts = false;
+                  bool conflicts = false;
 
-              for (var session in todaySchedule['classes']) {
-                final String key = session['start'];
-                if (attendance[key] == 'Cancelled') continue;
+                  for (var session in todaySchedule['classes']) {
+                    final String key = session['start'];
+                    if (attendance[key] == 'Cancelled' ||
+                        session['class'] == 'Break' ||
+                        session['class'] == 'YIPPEE')
+                      continue;
 
-                final existingStart = _parseTime(session['start']);
-                final existingEnd = _parseTime(session['end']);
+                    final existingStart = _parseTime(session['start']);
+                    final existingEnd = _parseTime(session['end']);
 
-                if (!(newEnd.hour <= existingStart.hour || newStart.hour >= existingEnd.hour)) {
-                  conflicts = true;
-                  break;
-                }
-              }
+                    if (!(newEnd.hour <= existingStart.hour ||
+                        newStart.hour >= existingEnd.hour)) {
+                      conflicts = true;
+                      break;
+                    }
+                  }
 
-              for (var extra in extraClasses) {
-                final existingStart = _parseTime(extra['start']);
-                final existingEnd = _parseTime(extra['end']);
+                  for (var extra in extraClasses) {
+                    final existingStart = _parseTime(extra['start']);
+                    final existingEnd = _parseTime(extra['end']);
 
-                if (!(newEnd.hour <= existingStart.hour || newStart.hour >= existingEnd.hour)) {
-                  conflicts = true;
-                  break;
-                }
-              }
+                    if (!(newEnd.hour <= existingStart.hour ||
+                        newStart.hour >= existingEnd.hour)) {
+                      conflicts = true;
+                      break;
+                    }
+                  }
 
-              if (conflicts) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text("Time conflicts with existing non-cancelled class."),
-                ));
-                return;
-              }
+                  if (conflicts) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Time conflicts with existing non-cancelled class.",
+                        ),
+                      ),
+                    );
+                    return;
+                  }
 
-              setState(() {
-                final id = "${newStart.hour.toString().padLeft(2, '0')}:${newStart.minute.toString().padLeft(2, '0')}";
-                extraClasses.add({
-                  'label': 'Extra Class',
-                  'name': _nameController.text.trim(),
-                  'start': id,
-                  'end': "${newEnd.hour.toString().padLeft(2, '0')}:${newEnd.minute.toString().padLeft(2, '0')}"
-                });
-              });
+                  setState(() {
+                    final id =
+                        "${newStart.hour.toString().padLeft(2, '0')}:${newStart.minute.toString().padLeft(2, '0')}";
+                    extraClasses.add({
+                      'label': 'Extra Class',
+                      'name': _nameController.text.trim(),
+                      'start': id,
+                      'end':
+                          "${newEnd.hour.toString().padLeft(2, '0')}:${newEnd.minute.toString().padLeft(2, '0')}",
+                    });
+                  });
 
-              saveAttendanceForDate();
-              Navigator.pop(context);
-            },
-            child: const Text("Add"),
+                  saveAttendanceForDate();
+                  Navigator.pop(context);
+                },
+                child: const Text("Add"),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -238,10 +267,7 @@ class _AttendancePageState extends State<AttendancePage> {
         title: const Text('🎯 Attendance'),
         backgroundColor: const Color(0xFFb3e5fc),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.date_range),
-            onPressed: _pickDate,
-          )
+          IconButton(icon: const Icon(Icons.date_range), onPressed: _pickDate),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -251,38 +277,52 @@ class _AttendancePageState extends State<AttendancePage> {
         backgroundColor: Colors.orangeAccent,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
-      body: classes.isEmpty && extraClasses.isEmpty
-          ? Center(child: Text("📭 No classes for ${todaySchedule['day'] ?? ''}"))
-          : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text("📅 Date: $dateStr",
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                ),
-                Expanded(
-                  child: ListView(
-                    children: [
-                      ...classes.map((item) => _buildClassCard(
+      body:
+          classes.isEmpty && extraClasses.isEmpty
+              ? Center(
+                child: Text("📭 No classes for ${todaySchedule['day'] ?? ''}"),
+              )
+              : Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      "📅 Date: $dateStr",
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        ...classes.map(
+                          (item) => _buildClassCard(
                             subject: item['class'],
                             time: "${item['start']} - ${item['end']}",
                             status: attendance[item['start']],
-                            isBreak: item['class'] == 'Break' || item['class'] == 'YIPPEE',
+                            isBreak:
+                                item['class'] == 'Break' ||
+                                item['class'] == 'YIPPEE',
                             timeKey: item['start'],
                             allowCancelled: true,
-                          )),
-                      ...extraClasses.map((item) => _buildClassCard(
+                          ),
+                        ),
+                        ...extraClasses.map(
+                          (item) => _buildClassCard(
                             subject: item['name'],
                             time: "${item['start']} - ${item['end']}",
                             status: attendance[item['start']],
                             timeKey: item['start'],
                             isExtra: true,
-                          )),
-                    ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
     );
   }
 
@@ -309,8 +349,10 @@ class _AttendancePageState extends State<AttendancePage> {
             children: [
               isBreak
                   ? const Icon(Icons.free_breakfast)
-                  : Icon(getStatusIcon(status) ?? Icons.school_outlined,
-                      color: Colors.black54),
+                  : Icon(
+                    getStatusIcon(status) ?? Icons.school_outlined,
+                    color: Colors.black54,
+                  ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -323,8 +365,35 @@ class _AttendancePageState extends State<AttendancePage> {
                 ),
               ),
               if (isExtra)
-                const Text("Extra Class",
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Extra Class",
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.close,
+                        color: Colors.red,
+                        size: 18,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () {
+                        setState(() {
+                          extraClasses.removeWhere(
+                            (e) => e['start'] == timeKey,
+                          );
+                        });
+                        saveAttendanceForDate();
+                      },
+                    ),
+                  ],
+                ),
             ],
           ),
           const SizedBox(height: 4),
@@ -333,17 +402,21 @@ class _AttendancePageState extends State<AttendancePage> {
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
-              children: (allowCancelled ? ['Present', 'Absent', 'Cancelled'] : ['Present', 'Absent'])
-                  .map((s) {
-                return ChoiceChip(
-                  label: Text(s),
-                  selected: status == s,
-                  selectedColor: getCardColor(subject, s),
-                  onSelected: (_) => markAttendance(timeKey, s),
-                );
-              }).toList(),
+              children:
+                  (allowCancelled
+                          ? ['Present', 'Absent', 'Cancelled']
+                          : ['Present', 'Absent'])
+                      .map((s) {
+                        return ChoiceChip(
+                          label: Text(s),
+                          selected: status == s,
+                          selectedColor: getCardColor(subject, s),
+                          onSelected: (_) => markAttendance(timeKey, s),
+                        );
+                      })
+                      .toList(),
             ),
-          ]
+          ],
         ],
       ),
     );
