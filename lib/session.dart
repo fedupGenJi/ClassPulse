@@ -388,128 +388,140 @@ class _SessionPageState extends State<SessionPage> {
     await showDialog(
       context: context,
       builder:
-          (_) => AlertDialog(
-            title: const Text('Edit Session'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  value: newDay,
-                  items:
-                      days
-                          .map(
-                            (d) => DropdownMenuItem(value: d, child: Text(d)),
-                          )
-                          .toList(),
-                  onChanged: (val) => newDay = val,
-                  decoration: const InputDecoration(labelText: 'Day'),
+          (dialogContext) => StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: const Text('Edit Session'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: newDay,
+                      items:
+                          days
+                              .map(
+                                (d) =>
+                                    DropdownMenuItem(value: d, child: Text(d)),
+                              )
+                              .toList(),
+                      onChanged: (val) => setDialogState(() => newDay = val),
+                      decoration: const InputDecoration(labelText: 'Day'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: newStart!,
+                        );
+                        if (picked != null &&
+                            picked.hour >= 6 &&
+                            picked.hour <= 18) {
+                          setDialogState(
+                            () =>
+                                newStart = TimeOfDay(
+                                  hour: picked.hour,
+                                  minute: 0,
+                                ),
+                          );
+                        } else if (picked != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please select a time between 6 AM and 6 PM',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text("Pick Start Time"),
+                    ),
+                    if (newStart != null)
+                      Text("Picked Start Time: ${newStart!.format(context)}"),
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: newEnd!,
+                        );
+                        if (picked != null &&
+                            picked.hour >= 6 &&
+                            picked.hour <= 18) {
+                          setDialogState(
+                            () =>
+                                newEnd = TimeOfDay(
+                                  hour: picked.hour,
+                                  minute: 0,
+                                ),
+                          );
+                        } else if (picked != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please select a time between 6 AM and 6 PM',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text("Pick End Time"),
+                    ),
+                    if (newEnd != null)
+                      Text("Picked End Time: ${newEnd!.format(context)}"),
+                  ],
                 ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final picked = await showTimePicker(
-                      context: context,
-                      initialTime: newStart!,
-                    );
-
-                    if (picked != null &&
-                        picked.hour >= 6 &&
-                        picked.hour <= 18) {
-                      newStart = TimeOfDay(hour: picked.hour, minute: 0);
-                    } else if (picked != null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Please select a time between 6 AM and 6 PM',
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  child: Text(
-                    "Start: ${newStart != null ? newStart!.format(context) : 'Select time'}",
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      setState(() => timetable.removeAt(index));
+                    },
+                    child: const Text(
+                      "Delete",
+                      style: TextStyle(color: Colors.red),
+                    ),
                   ),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    final picked = await showTimePicker(
-                      context: context,
-                      initialTime: newEnd!,
-                    );
-
-                    if (picked != null &&
-                        picked.hour >= 6 &&
-                        picked.hour <= 18) {
-                      newEnd = TimeOfDay(hour: picked.hour, minute: 0);
-                    } else if (picked != null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Please select a time between 6 AM and 6 PM',
+                  TextButton(
+                    onPressed: () {
+                      if (newStart == null || newEnd == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              "❗ Please select both start and end times.",
+                            ),
                           ),
-                        ),
-                      );
-                    }
-                  },
-                  child: Text(
-                    "End: ${newEnd != null ? newEnd!.format(context) : 'Select time'}",
+                        );
+                        return;
+                      }
+
+                      if (newEnd!.hour < newStart!.hour ||
+                          (newEnd!.hour == newStart!.hour &&
+                              newEnd!.minute <= newStart!.minute)) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              "❌ End time must be after start time.",
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+
+                      Navigator.pop(dialogContext);
+                      setState(() {
+                        timetable[index] = {
+                          ...session,
+                          'day': newDay,
+                          'start': newStart!,
+                          'end': newEnd!,
+                        };
+                      });
+                    },
+                    child: const Text("Save Changes"),
                   ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    timetable.removeAt(index);
-                  });
-                  Navigator.pop(context);
-                },
-                child: const Text(
-                  "Delete",
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  if (newStart == null || newEnd == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          "❗ Please select both start and end times.",
-                        ),
-                      ),
-                    );
-                    return;
-                  }
-
-                  // Promote to non-null local variables for safe use
-                  final safeStart = newStart!;
-                  final safeEnd = newEnd!;
-
-                  if (safeEnd.hour < safeStart.hour ||
-                      (safeEnd.hour == safeStart.hour &&
-                          safeEnd.minute <= safeStart.minute)) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("❌ End time must be after start time."),
-                      ),
-                    );
-                    return;
-                  }
-
-                  setState(() {
-                    timetable[index] = {
-                      ...session,
-                      'day': newDay,
-                      'start': safeStart,
-                      'end': safeEnd,
-                    };
-                  });
-                  Navigator.pop(context);
-                },
-                child: const Text("Save Changes"),
-              ),
-            ],
+                ],
+              );
+            },
           ),
     );
   }

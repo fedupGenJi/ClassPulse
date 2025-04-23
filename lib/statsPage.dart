@@ -52,7 +52,12 @@ class _StatsPageState extends State<StatsPage> {
         backgroundColor: const Color(0xFFb3e5fc),
       ),
       body: attendanceData.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+            ? const Center(
+                child: Text(
+                  "No attendance data available yet!",
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+           )
           : ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: attendanceData.length,
