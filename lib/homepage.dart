@@ -234,13 +234,13 @@ class _HomePageState extends State<HomePage> {
             onPressed: _triggerAttendanceSummaryAndNavigate,
           ),
           IconButton(
-            icon: const Icon(Icons.check_circle_outline, color: Colors.black87),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AttendancePage()),
-              );
-            },
+            onPressed:
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WeeklyStatsPage()),
+                ),
+            icon: const Icon(Icons.timeline),
+            tooltip: 'View Weekly Stats',
           ),
           IconButton(
             icon: const Icon(Icons.calendar_today, color: Colors.black87),
@@ -255,13 +255,13 @@ class _HomePageState extends State<HomePage> {
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.indigo,
-        onPressed:
-            () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const WeeklyStatsPage()),
-            ),
-        child: const Icon(Icons.timeline),
-        tooltip: 'View Weekly Stats',
+        child: const Icon(Icons.check_circle_outline, color: Colors.black87),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AttendancePage()),
+          );
+        },
       ),
       body: RefreshIndicator(
         onRefresh: _loadTodaySchedule,

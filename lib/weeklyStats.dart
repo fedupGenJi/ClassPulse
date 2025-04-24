@@ -37,14 +37,17 @@ class _WeeklyStatsPageState extends State<WeeklyStatsPage> {
   Future<void> loadWeeklyStats() async {
     final prefs = await SharedPreferences.getInstance();
     final attendanceStr = prefs.getString('attendanceLog') ?? '{}';
-    final timetableStr = prefs.getString('optimizedTimetable') ?? '{}';
     final startStr = prefs.getString('semesterStartDate');
     if (startStr == null) return;
 
     final log = Map<String, dynamic>.from(jsonDecode(attendanceStr));
-    final timetable = Map<String, dynamic>.from(jsonDecode(timetableStr));
     final semesterStart = DateTime.parse(startStr);
     DateTime now = DateTime.now();
+
+    final versionList = prefs.getString('timetableVersions');
+    if (versionList == null) return;
+    List<dynamic> versions = jsonDecode(versionList);
+    versions.sort((a, b) => a['from'].compareTo(b['from']));
 
     DateTime weekStart = semesterStart;
     DateTime firstSaturday = semesterStart.add(
@@ -60,6 +63,17 @@ class _WeeklyStatsPageState extends State<WeeklyStatsPage> {
         d.isBefore(weekEnd.add(const Duration(days: 1)));
         d = d.add(const Duration(days: 1))
       ) {
+        Map<String, dynamic>? dayTimetable;
+        for (final version in versions) {
+          final fromDate = DateTime.parse(version['from']);
+          if (d.isAfter(fromDate) || d.isAtSameMomentAs(fromDate)) {
+            dayTimetable = version['data'];
+          } else {
+            break;
+          }
+        }
+        if (dayTimetable == null) continue;
+
         final key = d.toIso8601String().split('T')[0];
         final entries = Map<String, dynamic>.from(log[key] ?? {});
         final extras = List<Map<String, dynamic>>.from(log['extra_$key'] ?? []);
@@ -75,8 +89,9 @@ class _WeeklyStatsPageState extends State<WeeklyStatsPage> {
               'Saturday',
             ][d.weekday % 7];
         final sessions = List<Map<String, dynamic>>.from(
-          timetable[dayName] ?? [],
+          dayTimetable[dayName] ?? [],
         );
+
         final timeToName = {for (var s in sessions) s['start']: s['class']};
 
         for (var entry in entries.entries) {
@@ -240,7 +255,11 @@ class _WeeklyStatsPageState extends State<WeeklyStatsPage> {
                                                       style: TextStyle(
                                                         fontSize: 13,
                                                         color:
-                                                            present == total
+                                                            (present == 0 &&
+                                                                    total == 0)
+                                                                ? Colors.grey
+                                                                : (present ==
+                                                                    total)
                                                                 ? Colors.green
                                                                 : Colors.red,
                                                       ),

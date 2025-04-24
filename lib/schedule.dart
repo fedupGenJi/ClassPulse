@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'editSession.dart';
 
 class TimetableGridPage extends StatefulWidget {
   @override
@@ -10,6 +11,7 @@ class TimetableGridPage extends StatefulWidget {
 class _TimetableGridPageState extends State<TimetableGridPage> {
   Map<String, List<Map<String, dynamic>>> timetable = {};
   bool isLoading = true;
+  String? activeFromDate;
 
   final List<String> daysOfWeek = [
     'Sunday',
@@ -55,14 +57,30 @@ class _TimetableGridPageState extends State<TimetableGridPage> {
 
   Future<void> loadTimetable() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? jsonData = prefs.getString('optimizedTimetable');
+    final versionList = prefs.getString('timetableVersions');
+    if (versionList == null) return;
 
-    if (jsonData != null) {
-      final decoded = jsonDecode(jsonData) as Map<String, dynamic>;
-      timetable = decoded.map((key, value) {
-        return MapEntry(key, List<Map<String, dynamic>>.from(value));
-      });
+    List<dynamic> versions = jsonDecode(versionList);
+    versions.sort((a, b) => a['from'].compareTo(b['from']));
+
+    final today = DateTime.now();
+    Map<String, dynamic>? selected;
+
+    for (final version in versions) {
+      final from = DateTime.parse(version['from']);
+      if (today.isAfter(from) || today.isAtSameMomentAs(from)) {
+        selected = version['data'];
+        activeFromDate = version['from'];
+      } else {
+        break;
+      }
     }
+
+    if (selected == null) return;
+
+    timetable = selected.map((key, value) {
+      return MapEntry(key, List<Map<String, dynamic>>.from(value));
+    });
 
     setState(() {
       isLoading = false;
@@ -102,6 +120,18 @@ class _TimetableGridPageState extends State<TimetableGridPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Optimized Timetable'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            tooltip: 'Edit Timetable',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const EditSessionPage()),
+              );
+            },
+          ),
+        ],
       ),
       body:
           isLoading
@@ -110,6 +140,21 @@ class _TimetableGridPageState extends State<TimetableGridPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (activeFromDate != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: Text(
+                          "🗓 Using schedule from: $activeFromDate",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ),
+
                     ...daysOfWeek.map((day) {
                       final sessions = (timetable[day] ?? []);
                       return Card(

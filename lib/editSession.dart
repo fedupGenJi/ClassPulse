@@ -4,15 +4,15 @@ import 'homepage.dart';
 import 'dart:math';
 import 'dart:convert';
 
-class SessionPage extends StatefulWidget {
-  const SessionPage({Key? key}) : super(key: key);
+class EditSessionPage extends StatefulWidget {
+  const EditSessionPage({Key? key}) : super(key: key);
 
   @override
-  State<SessionPage> createState() => _SessionPageState();
+  State<EditSessionPage> createState() => _EditSessionPageState();
 }
 
-class _SessionPageState extends State<SessionPage> {
-  DateTime? semesterStartDate;
+class _EditSessionPageState extends State<EditSessionPage> {
+  DateTime? rescheduleDate;
   final _formKey = GlobalKey<FormState>();
   final _subjectController = TextEditingController();
   final _instructorController = TextEditingController();
@@ -22,6 +22,12 @@ class _SessionPageState extends State<SessionPage> {
 
   List<Map<String, dynamic>> timetable = [];
   List<Map<String, dynamic>> tempSessions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOptimizedTimetable();
+  }
 
   final List<String> days = [
     'Sunday',
@@ -43,7 +49,57 @@ class _SessionPageState extends State<SessionPage> {
     return subjectColors[subject]!;
   }
 
-  Future<void> optimizeTimetable(BuildContext context) async {
+  Future<void> _loadOptimizedTimetable() async {
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+
+    final versionsJson = prefs.getString('timetableVersions');
+    if (versionsJson == null) return;
+
+    final List<dynamic> versions = jsonDecode(versionsJson);
+
+    versions.sort((a, b) => a['from'].compareTo(b['from']));
+
+    Map<String, dynamic>? selected;
+
+    for (final version in versions) {
+      final fromDate = DateTime.parse(version['from']);
+      if (now.isAfter(fromDate) || now.isAtSameMomentAs(fromDate)) {
+        selected = version['data'];
+      } else {
+        break;
+      }
+    }
+
+    if (selected == null) return;
+
+    List<Map<String, dynamic>> loaded = [];
+
+    for (var day in selected.keys) {
+      for (var entry in selected[day]) {
+        if (entry['class'] == 'Break' || entry['class'] == 'YIPPEE') continue;
+
+        loaded.add({
+          'subject': entry['class'],
+          'instructor': entry['professor'] ?? '',
+          'day': day,
+          'start': _parseTime(entry['start']),
+          'end': _parseTime(entry['end']),
+        });
+      }
+    }
+
+    setState(() {
+      timetable = loaded;
+    });
+  }
+
+  TimeOfDay _parseTime(String time) {
+    final parts = time.split(':').map(int.parse).toList();
+    return TimeOfDay(hour: parts[0], minute: parts[1]);
+  }
+
+  Future<void> optimizeTimetable(BuildContext context, String saveKey) async {
     Map<String, List<Map<String, dynamic>>> grouped = {};
 
     for (var session in timetable) {
@@ -139,7 +195,7 @@ class _SessionPageState extends State<SessionPage> {
     }
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('optimizedTimetable', jsonEncode(optimized));
+    await prefs.setString(saveKey, jsonEncode(optimized));
   }
 
   bool _isEarlier(String time1, String time2) {
@@ -164,13 +220,13 @@ class _SessionPageState extends State<SessionPage> {
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime(2020),
+      firstDate: DateTime.now(),
       lastDate: DateTime(2030),
     );
 
     if (picked != null) {
       setState(() {
-        semesterStartDate = picked;
+        rescheduleDate = picked;
       });
     }
   }
@@ -336,15 +392,37 @@ class _SessionPageState extends State<SessionPage> {
   }
 
   Future<void> _completeSession() async {
-    if (semesterStartDate == null || timetable.isEmpty) return;
-    await optimizeTimetable(context);
+    if (rescheduleDate == null || timetable.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+
+    const tempKey = '__temp_timetable__';
+    await optimizeTimetable(context, tempKey);
+    final optimizedJson = prefs.getString(tempKey);
+    prefs.remove(tempKey);
+
+    if (optimizedJson == null) return;
+
+    List<dynamic> versions = [];
+    final existingVersions = prefs.getString('timetableVersions');
+    if (existingVersions != null) {
+      versions = jsonDecode(existingVersions);
+    }
+
+    versions.add({
+      'from': rescheduleDate!.toIso8601String().split('T').first,
+      'data': jsonDecode(optimizedJson),
+    });
+
+    await prefs.setString('timetableVersions', jsonEncode(versions));
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder:
           (context) => AlertDialog(
             title: const Text('Confirm Setup Completion'),
             content: const Text(
-              'Are you sure you want to complete the setup and go to the homepage?',
+              'The new schedule will be used from the selected date. Proceed?',
             ),
             actions: [
               TextButton(
@@ -359,16 +437,12 @@ class _SessionPageState extends State<SessionPage> {
           ),
     );
 
-    if (confirmed != true) return;
-
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('sessionSetupComplete', true);
-    await prefs.setString('semesterStartDate', semesterStartDate.toString());
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const HomePage()),
-    );
+    if (confirmed == true) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomePage()),
+      );
+    }
   }
 
   List<int> getTimeSlots() {
@@ -657,7 +731,7 @@ class _SessionPageState extends State<SessionPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Semester Schedule"),
+        title: const Text("Edit Schedule"),
         backgroundColor: Color(0xFFb3e5fc),
       ),
       body: SingleChildScrollView(
@@ -667,9 +741,9 @@ class _SessionPageState extends State<SessionPage> {
             ElevatedButton(
               onPressed: () => _pickDate(context),
               child: Text(
-                semesterStartDate == null
-                    ? "Select Semester Start Date"
-                    : "Start Date: ${semesterStartDate!.toLocal().toString().split(' ')[0]}",
+                rescheduleDate == null
+                    ? "Select Reschedule Date"
+                    : "Reschedule Date: ${rescheduleDate!.toLocal().toString().split(' ')[0]}",
               ),
             ),
             const SizedBox(height: 16),

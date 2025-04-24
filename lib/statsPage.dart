@@ -52,12 +52,12 @@ class _StatsPageState extends State<StatsPage> {
         backgroundColor: const Color(0xFFb3e5fc),
       ),
       body: attendanceData.isEmpty
-            ? const Center(
-                child: Text(
-                  "No attendance data available yet!",
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-           )
+          ? const Center(
+              child: Text(
+                "No attendance data available yet!",
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            )
           : ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: attendanceData.length,
@@ -69,7 +69,7 @@ class _StatsPageState extends State<StatsPage> {
                 final present = stats['present'] ?? 0;
                 final total = stats['total'] ?? 0;
                 final originalName = stats['originalName'] ?? subjectKey;
-                final percent = total > 0 ? (present.toDouble() / total.toDouble()) : 0.0;
+                final percent = total > 0 ? (present.toDouble() / total.toDouble()) : null;
                 final mainColor = getColorForIndex(index);
 
                 return Container(
@@ -99,26 +99,37 @@ class _StatsPageState extends State<StatsPage> {
                                   startDegreeOffset: -90,
                                   centerSpaceRadius: 30,
                                   sectionsSpace: 0,
-                                  sections: [
-                                    PieChartSectionData(
-                                      value: percent * 100,
-                                      color: mainColor,
-                                      radius: 40,
-                                      showTitle: false,
-                                    ),
-                                    PieChartSectionData(
-                                      value: 100.0 - (percent * 100),
-                                      color: Colors.grey.shade300,
-                                      radius: 40,
-                                      showTitle: false,
-                                    ),
-                                  ],
+                                  sections: percent != null
+                                      ? [
+                                          PieChartSectionData(
+                                            value: percent * 100,
+                                            color: mainColor,
+                                            radius: 40,
+                                            showTitle: false,
+                                          ),
+                                          PieChartSectionData(
+                                            value: 100.0 - (percent * 100),
+                                            color: Colors.grey.shade300,
+                                            radius: 40,
+                                            showTitle: false,
+                                          ),
+                                        ]
+                                      : [
+                                          PieChartSectionData(
+                                            value: 100,
+                                            color: Colors.grey.shade200,
+                                            radius: 40,
+                                            showTitle: false,
+                                          ),
+                                        ],
                                 ),
                                 swapAnimationDuration: const Duration(milliseconds: 800),
                                 swapAnimationCurve: Curves.easeInOutCubic,
                               ),
                               Text(
-                                "${(percent * 100).toStringAsFixed(2)}%",
+                                percent != null
+                                    ? "${(percent * 100).toStringAsFixed(2)}%"
+                                    : "X",
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -142,7 +153,9 @@ class _StatsPageState extends State<StatsPage> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                "You were present in $present out of $total classes.",
+                                total == 0
+                                    ? "No classes scheduled yet."
+                                    : "You were present in $present out of $total classes.",
                                 style: const TextStyle(fontSize: 14),
                               ),
                             ],

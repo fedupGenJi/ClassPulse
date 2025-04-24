@@ -18,6 +18,7 @@ class _AttendancePageState extends State<AttendancePage> {
   Map<String, String> attendance = {};
   Map<String, Map<String, int>> attendanceSummary = {};
   List<Map<String, dynamic>> extraClasses = [];
+  String? activeVersionDateStr;
 
   @override
   void initState() {
@@ -34,16 +35,30 @@ class _AttendancePageState extends State<AttendancePage> {
   Future<void> loadDataForDate(DateTime date) async {
     final prefs = await SharedPreferences.getInstance();
     final semesterStartStr = prefs.getString('semesterStartDate');
-    final timetableStr = prefs.getString('optimizedTimetable');
+    final versionList = prefs.getString('timetableVersions');
     final attendanceStr = prefs.getString('attendanceLog') ?? '{}';
 
-    if (semesterStartStr == null || timetableStr == null) return;
+    if (semesterStartStr == null || versionList == null) return;
 
     semesterStart = DateTime.parse(semesterStartStr);
     if (date.isBefore(semesterStart!)) return;
 
-    final optimizedTimetable = jsonDecode(timetableStr);
-    final attendanceLog = Map<String, dynamic>.from(jsonDecode(attendanceStr));
+    List<dynamic> versions = jsonDecode(versionList);
+    versions.sort((a, b) => a['from'].compareTo(b['from']));
+
+    Map<String, dynamic>? versionToUse;
+
+    for (final version in versions) {
+      final fromDate = DateTime.parse(version['from']);
+      if (date.isAfter(fromDate) || date.isAtSameMomentAs(fromDate)) {
+        versionToUse = version['data'];
+        activeVersionDateStr = version['from'];
+      } else {
+        break;
+      }
+    }
+
+    if (versionToUse == null) return;
 
     final currentDay =
         [
@@ -57,12 +72,14 @@ class _AttendancePageState extends State<AttendancePage> {
         ][date.weekday % 7];
 
     final dateKey = date.toIso8601String().split('T').first;
+    final attendanceLog = Map<String, dynamic>.from(jsonDecode(attendanceStr));
+
     final extras = List<Map<String, dynamic>>.from(
       attendanceLog['extra_$dateKey'] ?? [],
     );
 
     final daySchedule = List<Map<String, dynamic>>.from(
-      optimizedTimetable[currentDay] ?? [],
+      versionToUse[currentDay] ?? [],
     );
 
     final loadedAttendance = Map<String, String>.from(
@@ -152,10 +169,26 @@ class _AttendancePageState extends State<AttendancePage> {
     List<Map<String, dynamic>> extras,
   ) async {
     final prefs = await SharedPreferences.getInstance();
-    final timetableStr = prefs.getString('optimizedTimetable');
-    if (timetableStr == null) return null;
+    final versionList = prefs.getString('timetableVersions');
+    if (versionList == null) return null;
 
-    final timetable = jsonDecode(timetableStr);
+    List<dynamic> versions = jsonDecode(versionList);
+    versions.sort((a, b) => a['from'].compareTo(b['from']));
+
+    Map<String, dynamic>? selectedVersion;
+
+    for (final version in versions) {
+      final from = DateTime.parse(version['from']);
+      if (date.isAfter(from) || date.isAtSameMomentAs(from)) {
+        selectedVersion = version['data'];
+      } else {
+        break;
+      }
+    }
+
+    if (selectedVersion == null) return null;
+    final timetable = selectedVersion;
+
     final dayName =
         [
           'Sunday',
@@ -207,12 +240,25 @@ class _AttendancePageState extends State<AttendancePage> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      "📅 Date: $dateStr",
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "📅 Date: $dateStr",
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (activeVersionDateStr != null)
+                          Text(
+                            "🗓️ Using schedule from: $activeVersionDateStr",
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   Expanded(
@@ -671,33 +717,71 @@ Future<Map<String, Map<String, int>>> getAttendanceSummary() async {
 Future<Map<String, dynamic>> fetchTodayClassesForHomePage() async {
   final prefs = await SharedPreferences.getInstance();
   final semesterStartStr = prefs.getString('semesterStartDate');
-  final timetableStr = prefs.getString('optimizedTimetable');
   final attendanceStr = prefs.getString('attendanceLog') ?? '{}';
+  final versionList = prefs.getString('timetableVersions');
 
-  if (semesterStartStr == null || timetableStr == null) return {};
+  if (semesterStartStr == null || versionList == null) return {};
 
   final semesterStart = DateTime.parse(semesterStartStr);
   final today = DateTime.now();
   if (today.isBefore(semesterStart)) return {};
 
-  final timetable = jsonDecode(timetableStr);
+  List<dynamic> versions = jsonDecode(versionList);
+  versions.sort((a, b) => a['from'].compareTo(b['from']));
+
+  Map<String, dynamic>? currentTimetable;
+
+  for (final version in versions) {
+    final fromDate = DateTime.parse(version['from']);
+    if (today.isAfter(fromDate) || today.isAtSameMomentAs(fromDate)) {
+      currentTimetable = version['data'];
+    } else {
+      break;
+    }
+  }
+
+  if (currentTimetable == null) return {};
+
+  final currentDay =
+      [
+        'Sunday',
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+      ][today.weekday % 7];
+
+  final dateKey = today.toIso8601String().split('T')[0];
   final attendanceLog = jsonDecode(attendanceStr);
 
-  final currentDay = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][today.weekday % 7];
-  final dateKey = today.toIso8601String().split('T')[0];
+  final extras = List<Map<String, dynamic>>.from(
+    attendanceLog['extra_$dateKey'] ?? [],
+  );
 
-  final daySchedule = List<Map<String, dynamic>>.from(timetable[currentDay] ?? []);
+  final daySchedule = List<Map<String, dynamic>>.from(
+    currentTimetable[currentDay] ?? [],
+  );
+
+  final nonYippeeClasses =
+      daySchedule
+          .where(
+            (item) => item['class'] != 'Break' && item['class'] != 'YIPPEE',
+          )
+          .toList();
+
   final attendanceMap = Map<String, String>.from(attendanceLog[dateKey] ?? {});
-  final extras = List<Map<String, dynamic>>.from(attendanceLog['extra_$dateKey'] ?? []);
 
-  final nonYippeeClasses = daySchedule.where((item) => item['class'] != 'Break' && item['class'] != 'YIPPEE').toList();
-
-  final isYippeeDay = nonYippeeClasses.isEmpty && extras.isEmpty && daySchedule.any((c) => c['class'] == 'YIPPEE');
+  final isYippeeDay =
+      nonYippeeClasses.isEmpty &&
+      extras.isEmpty &&
+      daySchedule.any((c) => c['class'] == 'YIPPEE');
 
   return {
     'classes': nonYippeeClasses,
     'extras': extras,
     'attendance': attendanceMap,
-    'isYippee': isYippeeDay
+    'isYippee': isYippeeDay,
   };
 }
