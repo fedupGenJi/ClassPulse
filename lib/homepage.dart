@@ -4,6 +4,7 @@ import 'schedule.dart';
 import 'weeklyStats.dart';
 import 'attendance.dart';
 import 'statsPage.dart';
+import 'history.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -229,6 +230,18 @@ class _HomePageState extends State<HomePage> {
           onPressed: _showFancyProfileDialog,
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            tooltip: 'View Schedule History',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TimetableHistoryPage(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.bar_chart, color: Colors.black87),
             onPressed: _triggerAttendanceSummaryAndNavigate,

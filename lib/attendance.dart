@@ -91,7 +91,62 @@ class _AttendancePageState extends State<AttendancePage> {
       attendance = loadedAttendance;
       extraClasses = extras;
     });
+    await purgeObsoleteAttendance();
   }
+
+  Future<void> purgeObsoleteAttendance() async {
+  final prefs = await SharedPreferences.getInstance();
+  final dateKey = selectedDate.toIso8601String().split('T').first;
+  final currentDay = todaySchedule['day'];
+  final attendanceLogStr = prefs.getString('attendanceLog') ?? '{}';
+  final summaryStr = prefs.getString('attendanceSummary') ?? '{}';
+
+  final log = Map<String, dynamic>.from(jsonDecode(attendanceLogStr));
+  final summary = Map<String, Map<String, dynamic>>.from(
+    (jsonDecode(summaryStr) as Map).map(
+      (k, v) => MapEntry(k, Map<String, dynamic>.from(v)),
+    ),
+  );
+
+  for (final key in prefs.getKeys()) {
+    if (!key.startsWith('removed_')) continue;
+
+    final date = DateTime.parse(key.split('_')[1]);
+    if (selectedDate.isBefore(date)) continue;
+
+    final removed = prefs.getStringList(key) ?? [];
+    for (final entry in removed) {
+      final parts = entry.split('|');
+      if (parts.length != 3) continue;
+
+      final day = parts[0], time = parts[1], subject = parts[2];
+      if (currentDay != day) continue;
+
+      final actualKey = time;
+
+      if (attendance.containsKey(actualKey)) {
+        final status = attendance[actualKey];
+        if (status != 'Cancelled') {
+          final normalized = subject.toLowerCase().replaceAll(' ', '');
+          summary[normalized] ??= {
+            'originalName': subject,
+            'total': 0,
+            'present': 0,
+          };
+          summary[normalized]!['total'] = (summary[normalized]!['total'] ?? 1) - 1;
+          if (status == 'Present') {
+            summary[normalized]!['present'] = (summary[normalized]!['present'] ?? 1) - 1;
+          }
+        }
+
+        attendance.remove(actualKey);
+      }
+    }
+  }
+
+  await prefs.setString('attendanceLog', jsonEncode(log));
+  await prefs.setString('attendanceSummary', jsonEncode(summary));
+}
 
   Future<void> saveAttendanceForDate() async {
     final prefs = await SharedPreferences.getInstance();

@@ -165,7 +165,7 @@ class _SessionPageState extends State<SessionPage> {
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
+      lastDate: DateTime.now(),
     );
 
     if (picked != null) {
@@ -335,9 +335,34 @@ class _SessionPageState extends State<SessionPage> {
     }
   }
 
+  Future<void> optimizeAndSaveAsVersion(BuildContext context) async {
+  await optimizeTimetable(context);
+
+  final prefs = await SharedPreferences.getInstance();
+  final optimizedJson = prefs.getString('optimizedTimetable');
+  if (optimizedJson == null || semesterStartDate == null) return;
+
+  final fromDate = semesterStartDate!.toIso8601String().split('T').first;
+
+  List<dynamic> versions = [];
+  final versionList = prefs.getString('timetableVersions');
+  if (versionList != null) {
+    versions = jsonDecode(versionList);
+  }
+
+  versions.removeWhere((v) => v['from'] == fromDate);
+
+  versions.add({
+    'from': fromDate,
+    'data': jsonDecode(optimizedJson),
+  });
+
+  await prefs.setString('timetableVersions', jsonEncode(versions));
+}
+
   Future<void> _completeSession() async {
     if (semesterStartDate == null || timetable.isEmpty) return;
-    await optimizeTimetable(context);
+    await optimizeAndSaveAsVersion(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder:

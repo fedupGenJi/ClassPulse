@@ -409,10 +409,48 @@ class _EditSessionPageState extends State<EditSessionPage> {
       versions = jsonDecode(existingVersions);
     }
 
-    versions.add({
-      'from': rescheduleDate!.toIso8601String().split('T').first,
-      'data': jsonDecode(optimizedJson),
-    });
+    final newDate = rescheduleDate!.toIso8601String().split('T').first;
+
+    versions.removeWhere((version) => version['from'] == newDate);
+
+    versions.add({'from': newDate, 'data': jsonDecode(optimizedJson)});
+
+    Map<String, dynamic>? previousVersion;
+    for (final version in versions) {
+      final from = DateTime.parse(version['from']);
+      if (from.isBefore(rescheduleDate!)) {
+        previousVersion = version['data'];
+      } else {
+        break;
+      }
+    }
+
+    Set<String> previousSessions = {};
+    if (previousVersion != null) {
+      for (final day in previousVersion.keys) {
+        for (final session in previousVersion[day]) {
+          if (session['class'] == 'Break' || session['class'] == 'YIPPEE')
+            continue;
+          previousSessions.add("$day|${session['start']}|${session['class']}");
+        }
+      }
+    }
+
+    Map<String, dynamic> newOptimized = jsonDecode(optimizedJson!);
+    Set<String> newSessions = {};
+    for (final day in newOptimized.keys) {
+      for (final session in newOptimized[day]) {
+        if (session['class'] == 'Break' || session['class'] == 'YIPPEE')
+          continue;
+        newSessions.add("$day|${session['start']}|${session['class']}");
+      }
+    }
+
+    Set<String> removedSessions = previousSessions.difference(newSessions);
+    prefs.setStringList(
+      'removed_${rescheduleDate!.toIso8601String().split('T').first}',
+      removedSessions.toList(),
+    );
 
     await prefs.setString('timetableVersions', jsonEncode(versions));
 
