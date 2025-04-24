@@ -667,3 +667,37 @@ Future<Map<String, Map<String, int>>> getAttendanceSummary() async {
     ),
   );
 }
+
+Future<Map<String, dynamic>> fetchTodayClassesForHomePage() async {
+  final prefs = await SharedPreferences.getInstance();
+  final semesterStartStr = prefs.getString('semesterStartDate');
+  final timetableStr = prefs.getString('optimizedTimetable');
+  final attendanceStr = prefs.getString('attendanceLog') ?? '{}';
+
+  if (semesterStartStr == null || timetableStr == null) return {};
+
+  final semesterStart = DateTime.parse(semesterStartStr);
+  final today = DateTime.now();
+  if (today.isBefore(semesterStart)) return {};
+
+  final timetable = jsonDecode(timetableStr);
+  final attendanceLog = jsonDecode(attendanceStr);
+
+  final currentDay = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][today.weekday % 7];
+  final dateKey = today.toIso8601String().split('T')[0];
+
+  final daySchedule = List<Map<String, dynamic>>.from(timetable[currentDay] ?? []);
+  final attendanceMap = Map<String, String>.from(attendanceLog[dateKey] ?? {});
+  final extras = List<Map<String, dynamic>>.from(attendanceLog['extra_$dateKey'] ?? []);
+
+  final nonYippeeClasses = daySchedule.where((item) => item['class'] != 'Break' && item['class'] != 'YIPPEE').toList();
+
+  final isYippeeDay = nonYippeeClasses.isEmpty && extras.isEmpty && daySchedule.any((c) => c['class'] == 'YIPPEE');
+
+  return {
+    'classes': nonYippeeClasses,
+    'extras': extras,
+    'attendance': attendanceMap,
+    'isYippee': isYippeeDay
+  };
+}
