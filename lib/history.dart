@@ -5,6 +5,24 @@ import 'dart:convert';
 class TimetableHistoryPage extends StatelessWidget {
   const TimetableHistoryPage({super.key});
 
+  Color getColorForClass(String className) {
+  final colors = [
+    Colors.lightBlue[100],
+    Colors.green[100],
+    Colors.orange[100],
+    Colors.purple[100],
+    Colors.pink[100],
+    Colors.teal[100],
+    Colors.cyan[100],
+    Colors.indigo[100],
+    Colors.red[100],
+    Colors.lime[100],
+  ];
+
+  int index = className.codeUnits.fold(0, (a, b) => a + b) % colors.length;
+  return colors[index]!;
+}
+
   Future<void> _deleteVersion(BuildContext context, String fromDate) async {
     final prefs = await SharedPreferences.getInstance();
     final versionStr = prefs.getString('timetableVersions');
@@ -198,7 +216,7 @@ class TimetableHistoryPage extends StatelessWidget {
                         color:
                             isBreak
                                 ? Colors.yellow[100]
-                                : Colors.lightBlue[100],
+                                :  getColorForClass(name),
                         border: Border.all(color: Colors.grey),
                       ),
                       padding: const EdgeInsets.all(4),
