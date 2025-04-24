@@ -6,6 +6,10 @@ import 'attendance.dart';
 import 'statsPage.dart';
 import 'history.dart';
 import 'dart:convert';
+import 'assignment.dart';
+import 'subject.dart';
+import 'exams.dart';
+import 'package:intl/intl.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,12 +27,81 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> todayClasses = [];
   List<Map<String, dynamic>> extraClasses = [];
   Map<String, dynamic> attendanceSummary = {};
+  List<Map<String, dynamic>> upcomingAssignments = [];
+  List<Map<String, dynamic>> upcomingTests = [];
 
   @override
   void initState() {
     super.initState();
     _loadSessionData();
     _loadTodaySchedule();
+    _loadUpcomingAssignments();
+    _loadUpcomingTests();
+  }
+
+  Future<void> _loadUpcomingTests() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString('exams');
+    if (data != null) {
+      try {
+        final List<Map<String, dynamic>> allTests =
+            List<Map<String, dynamic>>.from(jsonDecode(data));
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+
+        final upcoming =
+            allTests.where((exam) {
+              final examDate = DateFormat('dd/MM/yyyy').parse(exam['examDate']);
+              final diff = examDate.difference(today).inDays;
+              return diff >= 0 && diff <= 14;
+            }).toList();
+
+        setState(() {
+          upcomingTests = upcoming;
+        });
+      } catch (e) {
+        print("Failed to load exams: $e");
+      }
+    }
+  }
+
+  Future<void> _loadUpcomingAssignments() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString('assignments');
+    if (data != null) {
+      final List<Map<String, dynamic>> allAssignments =
+          List<Map<String, dynamic>>.from(jsonDecode(data));
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      final upcoming =
+          allAssignments.where((assignment) {
+            final submitted = assignment['submitted'] ?? false;
+            if (submitted) return false;
+
+            try {
+              final deadline = DateFormat(
+                'dd/MM/yyyy',
+              ).parse(assignment['deadline']);
+              final deadlineDay = DateTime(
+                deadline.year,
+                deadline.month,
+                deadline.day,
+              );
+
+              final diff = deadlineDay.difference(today).inDays;
+
+              return diff >= 0 && diff <= 7;
+            } catch (e) {
+              print("Failed to parse deadline: ${assignment['deadline']}");
+              return false;
+            }
+          }).toList();
+
+      setState(() {
+        upcomingAssignments = upcoming;
+      });
+    }
   }
 
   Future<void> _loadSessionData() async {
@@ -193,18 +266,59 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.indigo,
-        child: const Icon(Icons.check_circle_outline, color: Colors.black87),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AttendancePage()),
-          );
-        },
+      floatingActionButton: Stack(
+        children: [
+          Positioned(
+            bottom: 8,
+            right: 10,
+            child: SizedBox(
+              height: 65,
+              width: 65,
+              child: FloatingActionButton(
+              backgroundColor: Colors.indigo,
+              heroTag: "attendanceFAB",
+              child: const Icon(
+                Icons.check_circle_outline,
+                color: Colors.black87,
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AttendancePage(),
+                  ),
+                );
+              },
+            ),)
+          ),
+          Positioned(
+            bottom: 85,
+            right: 10,
+            child:SizedBox(
+              height: 65,
+              width: 65,
+              child: FloatingActionButton(
+              backgroundColor: Colors.green,
+              child: const Icon(Icons.class_rounded, color: Colors.white),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SubjectWiseOverviewPage(),
+                  ),
+                );
+              },
+            ),)
+          ),
+        ],
       ),
       body: RefreshIndicator(
-        onRefresh: _loadTodaySchedule,
+        onRefresh: () async {
+          await _loadTodaySchedule();
+          await _loadUpcomingAssignments();
+          await _loadUpcomingTests();
+        },
+
         child: ListView(
           padding: const EdgeInsets.all(12.0),
           children: [
@@ -277,12 +391,137 @@ class _HomePageState extends State<HomePage> {
             ),
 
             const SizedBox(height: 16),
-            const Center(
-              child: Text(
-                'Welcome to Attendance Tracker!',
-                style: TextStyle(fontSize: 18, color: Colors.black87),
-              ),
+            const SizedBox(height: 24),
+
+            Text(
+              "Upcoming Assignment Deadlines",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  icon: Icon(Icons.add, color: Colors.deepOrange),
+                  label: Text("Add an Assignment"),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AssignmentPage()),
+                    );
+                  },
+                ),
+              ],
+            ),
+            ...[
+              if (upcomingAssignments.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Text(
+                      "Chill! No deadlines near 😎",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                ...upcomingAssignments.map((assignment) {
+                  final deadline = DateFormat(
+                    'dd/MM/yyyy',
+                  ).parse(assignment['deadline']);
+
+                  final now = DateTime.now();
+                  final today = DateTime(now.year, now.month, now.day);
+                  final deadlineDate = DateTime(
+                    deadline.year,
+                    deadline.month,
+                    deadline.day,
+                  );
+
+                  final daysLeft = deadlineDate.difference(today).inDays;
+
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    child: ListTile(
+                      title: Text(assignment['title']),
+                      subtitle: Text(assignment['subject']),
+                      trailing: Text(
+                        daysLeft == 0
+                            ? "Today"
+                            : "$daysLeft day${daysLeft == 1 ? '' : 's'} left",
+                        style: const TextStyle(color: Colors.deepOrange),
+                      ),
+                    ),
+                  );
+                }),
+            ],
+
+            Text(
+              "Upcoming Tests",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  icon: Icon(Icons.add, color: Colors.blue),
+                  label: Text("Add a Test"),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ExamPage()),
+                    );
+                  },
+                ),
+              ],
+            ),
+
+            if (upcomingTests.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Text(
+                    "No tests in the next 14 days 🎯",
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              )
+            else
+              ...upcomingTests.map((test) {
+                final testDate = DateFormat('dd/MM/yyyy').parse(test['examDate']);
+                final now = DateTime.now();
+                final today = DateTime(now.year, now.month, now.day);
+                final daysLeft = testDate.difference(today).inDays;
+
+                String trailingText;
+                Color trailingColor = Colors.blue;
+
+                if (test['appeared'] == null && daysLeft < 0) {
+                  trailingText = "Go and mark your exam attendance";
+                  trailingColor = Colors.red;
+                } else {
+                  trailingText =
+                      daysLeft == 0
+                          ? "Today"
+                          : "$daysLeft day${daysLeft == 1 ? '' : 's'} left";
+                }
+
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  child: ListTile(
+                    title: Text(test['title']),
+                    subtitle: Text(test['subject']),
+                    trailing: Text(
+                      trailingText,
+                      style: TextStyle(color: trailingColor),
+                    ),
+                  ),
+                );
+              }),
           ],
         ),
       ),

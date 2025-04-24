@@ -96,7 +96,6 @@ class _AttendancePageState extends State<AttendancePage> {
 
   Future<void> purgeObsoleteAttendance() async {
     final prefs = await SharedPreferences.getInstance();
-    final dateKey = selectedDate.toIso8601String().split('T').first;
     final currentDay = todaySchedule['day'];
     final attendanceLogStr = prefs.getString('attendanceLog') ?? '{}';
     final summaryStr = prefs.getString('attendanceSummary') ?? '{}';

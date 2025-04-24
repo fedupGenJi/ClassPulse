@@ -120,6 +120,7 @@ class _TimetableGridPageState extends State<TimetableGridPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Optimized Timetable'),
+        backgroundColor: Color(0xFFb3e5fc),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),

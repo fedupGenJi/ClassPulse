@@ -436,7 +436,7 @@ class _EditSessionPageState extends State<EditSessionPage> {
       }
     }
 
-    Map<String, dynamic> newOptimized = jsonDecode(optimizedJson!);
+    Map<String, dynamic> newOptimized = jsonDecode(optimizedJson);
     Set<String> newSessions = {};
     for (final day in newOptimized.keys) {
       for (final session in newOptimized[day]) {
