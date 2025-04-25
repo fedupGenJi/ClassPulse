@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'schedule.dart';
-import 'weeklyStats.dart';
 import 'attendance.dart';
 import 'statsPage.dart';
 import 'history.dart';
@@ -10,6 +9,8 @@ import 'assignment.dart';
 import 'exams.dart';
 import 'package:intl/intl.dart';
 import 'fab.dart';
+import 'notifications.dart';
+import 'pdf.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -22,6 +23,7 @@ class _HomePageState extends State<HomePage> {
   String userName = '';
   String userGmail = '';
   String userCourse = '';
+  String semesterName = '';
 
   Map<String, String> todayAttendance = {};
   List<Map<String, dynamic>> todayClasses = [];
@@ -37,6 +39,23 @@ class _HomePageState extends State<HomePage> {
     _loadTodaySchedule();
     _loadUpcomingAssignments();
     _loadUpcomingTests();
+
+    Future.delayed(Duration.zero, () async {
+      await NotificationService.init();
+
+      await Future.wait([
+        _loadTodaySchedule(),
+        _loadUpcomingAssignments(),
+        _loadUpcomingTests(),
+      ]);
+
+      await NotificationService.scheduleNotificationsIfNeeded(
+        assignments: upcomingAssignments,
+        exams: upcomingTests,
+        todayClasses: todayClasses,
+        attendanceSummary: attendanceSummary,
+      );
+    });
   }
 
   Future<void> _loadUpcomingTests() async {
@@ -58,6 +77,7 @@ class _HomePageState extends State<HomePage> {
 
         setState(() {
           upcomingTests = upcoming;
+          prefs.setString('exams', jsonEncode(allTests));
         });
       } catch (e) {
         print("Failed to load exams: $e");
@@ -100,6 +120,7 @@ class _HomePageState extends State<HomePage> {
 
       setState(() {
         upcomingAssignments = upcoming;
+        prefs.setString('assignments', jsonEncode(allAssignments));
       });
     }
   }
@@ -110,6 +131,7 @@ class _HomePageState extends State<HomePage> {
       userName = prefs.getString('userName') ?? '';
       userGmail = prefs.getString('userGmail') ?? '';
       userCourse = prefs.getString('userCourse') ?? '';
+      semesterName = prefs.getString('semesterName') ?? '';
     });
   }
 
@@ -132,7 +154,37 @@ class _HomePageState extends State<HomePage> {
           {'class': 'YIPPEE! Enjoy your free day 🎉', 'start': '', 'end': ''},
         ];
       }
+      prefs.setString('todayClasses', jsonEncode(todayClasses));
     });
+  }
+
+  void _confirmEndSemester() {
+    showDialog(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: const Text("End Semester"),
+            content: const Text(
+              "Are you sure you want to end this semester? This will generate a PDF summary and reset your session.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context); 
+                  generateSemesterSummaryAndReset(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                ),
+                child: const Text("Yes, End It"),
+              ),
+            ],
+          ),
+    );
   }
 
   void _showFancyProfileDialog() {
@@ -165,17 +217,20 @@ class _HomePageState extends State<HomePage> {
                   _profileDetail(Icons.email, userGmail),
                   const SizedBox(height: 8),
                   _profileDetail(Icons.school, userCourse),
+                  const SizedBox(height: 8),
+                  if (semesterName.isNotEmpty)
+                    _profileDetail(Icons.school_outlined, semesterName),
                   const SizedBox(height: 20),
                   ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _confirmEndSemester,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFb3e5fc),
-                      foregroundColor: Colors.black87,
+                      backgroundColor: Colors.redAccent,
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
                     ),
-                    child: const Text("Close"),
+                    child: const Text("End Semester"),
                   ),
                 ],
               ),
@@ -247,15 +302,6 @@ class _HomePageState extends State<HomePage> {
             onPressed: _triggerAttendanceSummaryAndNavigate,
           ),
           IconButton(
-            onPressed:
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const WeeklyStatsPage()),
-                ),
-            icon: const Icon(Icons.timeline),
-            tooltip: 'View Weekly Stats',
-          ),
-          IconButton(
             icon: const Icon(Icons.calendar_today, color: Colors.black87),
             onPressed: () {
               Navigator.push(
@@ -268,7 +314,7 @@ class _HomePageState extends State<HomePage> {
       ),
 
       floatingActionButton: const ShrinkingExpandableFAB(),
-      
+
       body: RefreshIndicator(
         onRefresh: () async {
           await _loadTodaySchedule();
@@ -449,7 +495,9 @@ class _HomePageState extends State<HomePage> {
               )
             else
               ...upcomingTests.map((test) {
-                final testDate = DateFormat('dd/MM/yyyy').parse(test['examDate']);
+                final testDate = DateFormat(
+                  'dd/MM/yyyy',
+                ).parse(test['examDate']);
                 final now = DateTime.now();
                 final today = DateTime(now.year, now.month, now.day);
                 final daysLeft = testDate.difference(today).inDays;

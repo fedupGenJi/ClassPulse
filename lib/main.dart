@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'registration.dart';
 import 'homepage.dart';
 import 'session.dart';
+import 'notifications.dart';
+import 'splashScreen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AndroidAlarmManager.initialize();
+  await NotificationService.init();
+  await NotificationService.requestNotificationPermissions();
+  await NotificationService.requestBackgroundExecutionPermission();
   runApp(const AttendanceTrackerApp());
+  await scheduleDailyNotificationTask();
 }
 
 class AttendanceTrackerApp extends StatelessWidget {
@@ -16,7 +25,7 @@ class AttendanceTrackerApp extends StatelessWidget {
     return MaterialApp(
       title: 'Attendance Tracker',
       debugShowCheckedModeBanner: false,
-      home: const SessionChecker(),
+      home: const SplashScreen(),
     );
   }
 }

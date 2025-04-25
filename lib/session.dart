@@ -15,6 +15,7 @@ class _SessionPageState extends State<SessionPage> {
   final _formKey = GlobalKey<FormState>();
   final _subjectController = TextEditingController();
   final _instructorController = TextEditingController();
+  final _semesterController = TextEditingController();
   String? _selectedDay;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
@@ -405,6 +406,7 @@ class _SessionPageState extends State<SessionPage> {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setBool('sessionSetupComplete', true);
     await prefs.setString('semesterStartDate', semesterStartDate.toString());
+    await prefs.setString('semesterName', _semesterController.text.trim());
 
     Navigator.pushReplacement(
       context,
@@ -705,6 +707,19 @@ class _SessionPageState extends State<SessionPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
+            TextFormField(
+              controller: _semesterController,
+              decoration: const InputDecoration(
+                labelText: "Semester Name",
+                border: OutlineInputBorder(),
+              ),
+              validator:
+                  (value) =>
+                      value == null || value.isEmpty
+                          ? "Please enter semester name"
+                          : null,
+            ),
+            const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => _pickDate(context),
               child: Text(

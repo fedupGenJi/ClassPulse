@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:fl_chart/fl_chart.dart';
+import 'weeklyStats.dart';
 
 class StatsPage extends StatefulWidget {
   const StatsPage({super.key});
@@ -85,6 +86,17 @@ class _StatsPageState extends State<StatsPage> {
       appBar: AppBar(
         title: const Text("📊 Attendance Summary"),
         backgroundColor: const Color(0xFFb3e5fc),
+        actions: [
+          IconButton(
+            onPressed:
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WeeklyStatsPage()),
+                ),
+            icon: const Icon(Icons.timeline),
+            tooltip: 'View Weekly Stats',
+          ),
+        ],
       ),
       body:
           attendanceData.isEmpty
