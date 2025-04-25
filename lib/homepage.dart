@@ -8,9 +8,10 @@ import 'dart:convert';
 import 'assignment.dart';
 import 'exams.dart';
 import 'package:intl/intl.dart';
-import 'fab.dart';
+//import 'fab.dart';
 import 'notifications.dart';
 import 'pdf.dart';
+import 'subject.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -305,6 +306,18 @@ class _HomePageState extends State<HomePage> {
             onPressed: _triggerAttendanceSummaryAndNavigate,
           ),
           IconButton(
+            icon: const Icon(Icons.dashboard_customize, color: Colors.black87),
+            tooltip: 'Subject Overview',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SubjectWiseOverviewPage(),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.calendar_today, color: Colors.black87),
             onPressed: () {
               Navigator.push(
@@ -316,7 +329,18 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
 
-      floatingActionButton: const ShrinkingExpandableFAB(),
+      //floatingActionButton: const ShrinkingExpandableFAB(),
+      floatingActionButton: FloatingActionButton(
+        heroTag: "attendanceFAB",
+        backgroundColor: Colors.indigo,
+        child: const Icon(Icons.check_circle_outline),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AttendancePage()),
+          );
+        },
+      ),
 
       body: RefreshIndicator(
         onRefresh: () async {

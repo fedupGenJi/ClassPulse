@@ -223,7 +223,7 @@ Future<void> generateAndViewPDF(BuildContext context) async {
     final file = File(path);
     await file.writeAsBytes(bytes);
     await OpenFile.open(file.path);
-    //await prefs.clear();
+    await prefs.clear();
     await Future.delayed(const Duration(seconds: 2));
     Phoenix.rebirth(context);
   } catch (e) {
