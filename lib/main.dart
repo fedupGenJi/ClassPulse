@@ -6,6 +6,7 @@ import 'homepage.dart';
 import 'session.dart';
 import 'notifications.dart';
 import 'splashScreen.dart';
+import 'package:flutter_phoenix/flutter_phoenix.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,8 +14,12 @@ void main() async {
   await NotificationService.init();
   await NotificationService.requestNotificationPermissions();
   await NotificationService.requestBackgroundExecutionPermission();
-  runApp(const AttendanceTrackerApp());
   await scheduleDailyNotificationTask();
+  runApp(
+    Phoenix(
+      child: const AttendanceTrackerApp(),
+    ),
+  );
 }
 
 class AttendanceTrackerApp extends StatelessWidget {

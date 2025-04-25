@@ -72,6 +72,9 @@ class _HomePageState extends State<HomePage> {
             allTests.where((exam) {
               final examDate = DateFormat('dd/MM/yyyy').parse(exam['examDate']);
               final diff = examDate.difference(today).inDays;
+
+              if (exam.containsKey('appeared')) return false;
+
               return diff >= 0 && diff <= 14;
             }).toList();
 
@@ -174,8 +177,8 @@ class _HomePageState extends State<HomePage> {
               ),
               ElevatedButton(
                 onPressed: () {
-                  Navigator.pop(context); 
-                  generateSemesterSummaryAndReset(context);
+                  Navigator.pop(context);
+                  generateAndViewPDF(context);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.redAccent,

@@ -26,7 +26,6 @@ Future<void> scheduleDailyNotificationTask() async {
 
 void backgroundNotificationCallback() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await NotificationService.init();
 
   final prefs = await SharedPreferences.getInstance();
 
@@ -83,21 +82,6 @@ class NotificationService {
       }
     } else {
       debugPrint("✅ Already allowed to run in background.");
-    }
-  }
-
-  static Future<void> requestStoragePermission() async {
-    final status = await Permission.storage.request();
-
-    if (status.isGranted) {
-      debugPrint("✅ Storage permission granted.");
-    } else if (status.isDenied) {
-      debugPrint("❌ Storage permission denied.");
-    } else if (status.isPermanentlyDenied) {
-      debugPrint(
-        "❌ Storage permission permanently denied. Opening app settings...",
-      );
-      await openAppSettings();
     }
   }
 
