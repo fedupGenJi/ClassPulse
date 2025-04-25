@@ -254,7 +254,7 @@ class _ExamPageState extends State<ExamPage> {
       return "Not Appeared";
     } else if (now.isBefore(examDate)) {
       final daysLeft = examDate.difference(now).inDays;
-      if (daysLeft < 14) return "Due Soon";
+      if (daysLeft < 14) return "Coming Soon";
       return null;
     } else if (now.isAfter(examDate) || now.isAtSameMomentAs(examDate)) {
       return "Undefined";

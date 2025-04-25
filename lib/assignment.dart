@@ -413,7 +413,7 @@ class _AssignmentPageState extends State<AssignmentPage> {
                           physics: const AlwaysScrollableScrollPhysics(),
                           children: const [
                             SizedBox(height: 150),
-                            Center(child: Text("No exams added yet.")),
+                            Center(child: Text("No assignments added yet.")),
                           ],
                         )
                         : ListView.builder(

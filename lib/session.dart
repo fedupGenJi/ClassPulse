@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'homepage.dart';
-import 'dart:math';
 import 'dart:convert';
 
 class SessionPage extends StatefulWidget {
@@ -33,14 +32,34 @@ class _SessionPageState extends State<SessionPage> {
     'Saturday',
   ];
 
+  final List<Color> distinctColors = [
+    Color(0xFFFFCDD2),
+    Color(0xFFBBDEFB),
+    Color(0xFFC8E6C9),
+    Color(0xFFFFF9C4),
+    Color(0xFFD1C4E9),
+    Color(0xFFFFE0B2),
+    Color(0xFFB2DFDB),
+    Color(0xFFFFF8E1),
+    Color(0xFFDCEDC8),
+    Color(0xFFE1BEE7),
+  ];
+
   final Map<String, Color> subjectColors = {};
+  int _colorIndex = 0;
+
+  String normalizeSubject(String subject) {
+    return subject.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+  }
 
   Color getColorForSubject(String subject) {
-    if (!subjectColors.containsKey(subject)) {
-      subjectColors[subject] =
-          Colors.primaries[Random().nextInt(Colors.primaries.length)].shade200;
+    String normalized = normalizeSubject(subject);
+    if (!subjectColors.containsKey(normalized)) {
+      subjectColors[normalized] =
+          distinctColors[_colorIndex % distinctColors.length];
+      _colorIndex++;
     }
-    return subjectColors[subject]!;
+    return subjectColors[normalized]!;
   }
 
   Future<void> optimizeTimetable(BuildContext context) async {
@@ -336,29 +355,26 @@ class _SessionPageState extends State<SessionPage> {
   }
 
   Future<void> optimizeAndSaveAsVersion(BuildContext context) async {
-  await optimizeTimetable(context);
+    await optimizeTimetable(context);
 
-  final prefs = await SharedPreferences.getInstance();
-  final optimizedJson = prefs.getString('optimizedTimetable');
-  if (optimizedJson == null || semesterStartDate == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final optimizedJson = prefs.getString('optimizedTimetable');
+    if (optimizedJson == null || semesterStartDate == null) return;
 
-  final fromDate = semesterStartDate!.toIso8601String().split('T').first;
+    final fromDate = semesterStartDate!.toIso8601String().split('T').first;
 
-  List<dynamic> versions = [];
-  final versionList = prefs.getString('timetableVersions');
-  if (versionList != null) {
-    versions = jsonDecode(versionList);
+    List<dynamic> versions = [];
+    final versionList = prefs.getString('timetableVersions');
+    if (versionList != null) {
+      versions = jsonDecode(versionList);
+    }
+
+    versions.removeWhere((v) => v['from'] == fromDate);
+
+    versions.add({'from': fromDate, 'data': jsonDecode(optimizedJson)});
+
+    await prefs.setString('timetableVersions', jsonEncode(versions));
   }
-
-  versions.removeWhere((v) => v['from'] == fromDate);
-
-  versions.add({
-    'from': fromDate,
-    'data': jsonDecode(optimizedJson),
-  });
-
-  await prefs.setString('timetableVersions', jsonEncode(versions));
-}
 
   Future<void> _completeSession() async {
     if (semesterStartDate == null || timetable.isEmpty) return;

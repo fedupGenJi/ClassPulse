@@ -90,7 +90,7 @@ class _SubjectWiseOverviewPageState extends State<SubjectWiseOverviewPage> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.event_note),
+            icon: const Icon(Icons.class_),
             tooltip: 'View Exams',
             onPressed: () {
               Navigator.push(
@@ -103,7 +103,7 @@ class _SubjectWiseOverviewPageState extends State<SubjectWiseOverviewPage> {
       ),
       body:
           subjectMap.isEmpty
-              ? const Center(child: Text("No subjects found yet."))
+              ? const Center(child: Text("No subject assignment/exams declared yet."))
               : ListView.builder(
                 itemCount: subjectMap.length,
                 itemBuilder: (context, index) {
@@ -113,17 +113,12 @@ class _SubjectWiseOverviewPageState extends State<SubjectWiseOverviewPage> {
                   final assignments = data['assignmentCount'];
                   final exams = data['examCount'];
 
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 6,
                     ),
-                    child: ListTile(
-                      title: Text(display),
-                      subtitle: Text(
-                        "$assignments Assignment(s), $exams Exam(s)",
-                      ),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    child: InkWell(
                       onTap: () {
                         Navigator.push(
                           context,
@@ -134,6 +129,44 @@ class _SubjectWiseOverviewPageState extends State<SubjectWiseOverviewPage> {
                           ),
                         );
                       },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 5,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              display,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "$assignments Assignment(s), $exams Exam(s)",
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   );
                 },

@@ -7,9 +7,9 @@ import 'statsPage.dart';
 import 'history.dart';
 import 'dart:convert';
 import 'assignment.dart';
-import 'subject.dart';
 import 'exams.dart';
 import 'package:intl/intl.dart';
+import 'fab.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -266,52 +266,9 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      floatingActionButton: Stack(
-        children: [
-          Positioned(
-            bottom: 8,
-            right: 10,
-            child: SizedBox(
-              height: 65,
-              width: 65,
-              child: FloatingActionButton(
-              backgroundColor: Colors.indigo,
-              heroTag: "attendanceFAB",
-              child: const Icon(
-                Icons.check_circle_outline,
-                color: Colors.black87,
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AttendancePage(),
-                  ),
-                );
-              },
-            ),)
-          ),
-          Positioned(
-            bottom: 85,
-            right: 10,
-            child:SizedBox(
-              height: 65,
-              width: 65,
-              child: FloatingActionButton(
-              backgroundColor: Colors.green,
-              child: const Icon(Icons.class_rounded, color: Colors.white),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SubjectWiseOverviewPage(),
-                  ),
-                );
-              },
-            ),)
-          ),
-        ],
-      ),
+
+      floatingActionButton: const ShrinkingExpandableFAB(),
+      
       body: RefreshIndicator(
         onRefresh: () async {
           await _loadTodaySchedule();

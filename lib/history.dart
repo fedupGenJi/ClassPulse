@@ -2,26 +2,42 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
+final List<Color> distinctColors = [
+  Color(0xFFFFCDD2),
+    Color(0xFFBBDEFB),
+    Color(0xFFC8E6C9),
+    Color(0xFFFFF9C4),
+    Color(0xFFD1C4E9),
+    Color(0xFFFFE0B2),
+    Color(0xFFB2DFDB),
+    Color(0xFFFFF8E1),
+    Color(0xFFDCEDC8),
+    Color(0xFFE1BEE7),
+];
+
+final Map<String, Color> subjectColors = {};
+int _colorIndex = 0;
+
+String normalizeSubject(String subject) {
+  return subject.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+}
+
+Color getColorForSubject(String subject) {
+  String normalized = normalizeSubject(subject);
+  if (!subjectColors.containsKey(normalized)) {
+    subjectColors[normalized] =
+        distinctColors[_colorIndex % distinctColors.length];
+    _colorIndex++;
+  }
+  return subjectColors[normalized]!;
+}
+
 class TimetableHistoryPage extends StatelessWidget {
   const TimetableHistoryPage({super.key});
 
   Color getColorForClass(String className) {
-  final colors = [
-    Colors.lightBlue[100],
-    Colors.green[100],
-    Colors.orange[100],
-    Colors.purple[100],
-    Colors.pink[100],
-    Colors.teal[100],
-    Colors.cyan[100],
-    Colors.indigo[100],
-    Colors.red[100],
-    Colors.lime[100],
-  ];
-
-  int index = className.codeUnits.fold(0, (a, b) => a + b) % colors.length;
-  return colors[index]!;
-}
+    return getColorForSubject(className);
+  }
 
   Future<void> _deleteVersion(BuildContext context, String fromDate) async {
     final prefs = await SharedPreferences.getInstance();
@@ -215,8 +231,8 @@ class TimetableHistoryPage extends StatelessWidget {
                       decoration: BoxDecoration(
                         color:
                             isBreak
-                                ? Colors.yellow[100]
-                                :  getColorForClass(name),
+                                ? const Color.fromARGB(179, 203, 182, 182)
+                                : getColorForClass(name),
                         border: Border.all(color: Colors.grey),
                       ),
                       padding: const EdgeInsets.all(4),
