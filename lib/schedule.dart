@@ -148,7 +148,7 @@ class _TimetableGridPageState extends State<TimetableGridPage> {
                           vertical: 8,
                         ),
                         child: Text(
-                          "🗓 Using schedule from: $activeFromDate",
+                          "📝 Using schedule from: $activeFromDate",
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey[700],

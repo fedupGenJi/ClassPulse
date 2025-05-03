@@ -300,7 +300,7 @@ class _AttendancePageState extends State<AttendancePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "📅 Date: $dateStr",
+                          "🗓️ Date: $dateStr",
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -308,7 +308,7 @@ class _AttendancePageState extends State<AttendancePage> {
                         ),
                         if (activeVersionDateStr != null)
                           Text(
-                            "🗓️ Using schedule from: $activeVersionDateStr",
+                            "📝 Using schedule from: $activeVersionDateStr",
                             style: const TextStyle(
                               fontSize: 14,
                               color: Colors.grey,

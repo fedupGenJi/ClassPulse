@@ -4,15 +4,15 @@ import 'dart:convert';
 
 final List<Color> distinctColors = [
   Color(0xFFFFCDD2),
-    Color(0xFFBBDEFB),
-    Color(0xFFC8E6C9),
-    Color(0xFFFFF9C4),
-    Color(0xFFD1C4E9),
-    Color(0xFFFFE0B2),
-    Color(0xFFB2DFDB),
-    Color(0xFFFFF8E1),
-    Color(0xFFDCEDC8),
-    Color(0xFFE1BEE7),
+  Color(0xFFBBDEFB),
+  Color(0xFFC8E6C9),
+  Color(0xFFFFF9C4),
+  Color(0xFFD1C4E9),
+  Color(0xFFFFE0B2),
+  Color(0xFFB2DFDB),
+  Color(0xFFFFF8E1),
+  Color(0xFFDCEDC8),
+  Color(0xFFE1BEE7),
 ];
 
 final Map<String, Color> subjectColors = {};
@@ -110,7 +110,7 @@ class TimetableHistoryPage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "📅 Schedule from: $fromDate",
+                "📝 Schedule from: $fromDate",
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -171,8 +171,12 @@ class TimetableHistoryPage extends StatelessWidget {
                         border: Border.all(color: Colors.black),
                       ),
                       child: Text(
-                        "${(timeRange[0] + index).toString().padLeft(2, '0')}:00",
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        "${(timeRange[0] + index).toString().padLeft(2, '0')}:00 - ${(timeRange[0] + index + 1).toString().padLeft(2, '0')}:00",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.normal,
+                          fontSize: 12,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ),
