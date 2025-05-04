@@ -152,6 +152,7 @@ class _WeeklyStatsPageState extends State<WeeklyStatsPage> {
       weekStart = weekEnd.add(const Duration(days: 1));
       weekEnd = weekStart.add(const Duration(days: 6));
       if (weekEnd.isAfter(now)) weekEnd = now;
+      if (weekEnd.isBefore(weekStart)) break;
     }
   }
 
